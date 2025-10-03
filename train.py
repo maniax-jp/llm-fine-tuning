@@ -10,6 +10,9 @@ from transformers import (
 )
 from datasets import Dataset
 from pathlib import Path
+from datetime import datetime
+import shutil
+import os
 
 # 設定
 MODEL_NAME = "sbintuitions/sarashina2.2-0.5B-instruct-v0.1"
@@ -73,10 +76,23 @@ class StableTrainer(Trainer):
 
         return (loss, outputs) if return_outputs else loss
 
+def backup_output_directory(output_dir):
+    """既存のoutputディレクトリをバックアップ"""
+    if os.path.exists(output_dir) and os.listdir(output_dir):
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        backup_dir = f"{output_dir}_backup{timestamp}"
+        print(f"\nBacking up existing output directory...")
+        print(f"Moving {output_dir} -> {backup_dir}")
+        shutil.move(output_dir, backup_dir)
+        print(f"Backup completed: {backup_dir}")
+
 def main():
     print("=" * 50)
     print("LLM Fine-tuning Script")
     print("=" * 50)
+
+    # outputディレクトリのバックアップ
+    backup_output_directory(OUTPUT_DIR)
 
     # デバイスの設定
     device = "cuda" if torch.cuda.is_available() else "cpu"
