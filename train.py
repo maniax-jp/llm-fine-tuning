@@ -1,5 +1,6 @@
 import json
 import torch
+import torch.nn as nn
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
@@ -58,6 +59,20 @@ def preprocess_data(data, tokenizer, max_length=512):
 
     return Dataset.from_dict(encodings)
 
+class StableTrainer(Trainer):
+    """数値安定性を向上させたTrainer"""
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        """損失計算時にinf/nanをチェック"""
+        outputs = model(**inputs)
+        loss = outputs.loss
+
+        # inf/nanのチェック
+        if torch.isnan(loss) or torch.isinf(loss):
+            print("Warning: NaN or Inf detected in loss. Skipping this batch.")
+            loss = torch.tensor(0.0, device=loss.device, requires_grad=True)
+
+        return (loss, outputs) if return_outputs else loss
+
 def main():
     print("=" * 50)
     print("LLM Fine-tuning Script")
@@ -72,7 +87,7 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
-        torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+        torch_dtype=torch.bfloat16 if device == "cuda" else torch.float32,
         device_map="auto" if device == "cuda" else None
     )
 
@@ -99,21 +114,24 @@ def main():
     training_args = TrainingArguments(
         output_dir=OUTPUT_DIR,
         num_train_epochs=3,
-        per_device_train_batch_size=4,
-        gradient_accumulation_steps=4,
-        learning_rate=2e-5,
-        warmup_steps=100,
+        per_device_train_batch_size=2,  # バッチサイズを削減
+        gradient_accumulation_steps=8,  # 勾配累積を増加
+        learning_rate=5e-6,  # 学習率を大幅に削減
+        warmup_steps=500,  # ウォームアップを増加
         logging_steps=10,
         save_steps=500,
         save_total_limit=2,
-        bf16=device == "cuda",  # bf16に変更
+        bf16=device == "cuda",
         logging_dir=f"{OUTPUT_DIR}/logs",
         report_to="none",
         remove_unused_columns=False,
+        max_grad_norm=0.5,  # より厳しい勾配クリッピング
+        weight_decay=0.01,  # 重み減衰追加
+        adam_epsilon=1e-8,  # Adam epsilon
     )
 
-    # Trainerの初期化
-    trainer = Trainer(
+    # Trainerの初期化（安定性向上版）
+    trainer = StableTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
