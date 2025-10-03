@@ -10,7 +10,7 @@ venv/
 .DS_Store
 
 # モデルと学習出力
-output/
+output*/
 *.bin
 *.safetensors
 *.pt
