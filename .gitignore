@@ -1,0 +1,31 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.log
+.DS_Store
+
+# モデルと学習出力
+output/
+*.bin
+*.safetensors
+*.pt
+*.pth
+
+# Hugging Face キャッシュ
+.cache/
+huggingface/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
